@@ -17,76 +17,96 @@ input, button { width:100%; padding:10px; margin-top:10px; }
 button { background:#28a745; color:#fff; border:none; font-size:16px; }
 .card { background:#eef6ff; padding:10px; margin-top:10px; border-radius:6px; }
 .call { background:#007bff; }
+.accept { background:#28a745; }
 </style>
 </head>
 
 <body>
 
-<!-- 🔐 LOGIN -->
+<!-- LOGIN -->
 <div class="box" id="loginBox">
   <h2>👷 Worker Login</h2>
-  <input id="phone" placeholder="+919999999999">
+
+  <!-- केवल 10 digit number -->
+  <input id="phone" placeholder="Mobile (10 digit)" maxlength="10">
+
   <div id="recaptcha"></div>
+
   <button onclick="sendOTP()">Send OTP</button>
 
   <input id="otp" placeholder="Enter OTP">
   <button onclick="verifyOTP()">Verify OTP</button>
 </div>
 
-<!-- 📋 DASHBOARD -->
+<!-- DASHBOARD -->
 <div class="box" id="panel" style="display:none;">
   <h2>My Bookings</h2>
-  <div id="bookings"></div>
+  <div id="bookings">Loading...</div>
 </div>
 
 <script>
-/* 🔹 FIREBASE CONFIG (आपका दिया हुआ – CORRECT) */
+/* =======================
+   🔥 FIREBASE CONFIG
+   (आपका NEW project)
+======================= */
 const firebaseConfig = {
   apiKey: "AIzaSyDOBjOo5YsBndo8HPQv66ClmthIHqf0gmw",
   authDomain: "village-help-6dda3.firebaseapp.com",
   projectId: "village-help-6dda3",
   storageBucket: "village-help-6dda3.firebasestorage.app",
   messagingSenderId: "242196617492",
-  appId: "1:242196617492:web:a1dde8b7a42088f75b0a01",
-  measurementId: "G-CXRRBM74PQ"
+  appId: "1:242196617492:web:a1dde8b7a42088f75b0a01"
 };
 
-/* 🔹 INITIALIZE */
 firebase.initializeApp(firebaseConfig);
+
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-/* 🔹 reCAPTCHA */
+/* =======================
+   🔐 RECAPTCHA
+======================= */
 window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier(
   'recaptcha',
-  { size: 'invisible' }
+  {
+    size: 'invisible'
+  }
 );
 
-let confirmationResult;
-let workerMobile = "";
+/* =======================
+   📲 OTP LOGIN
+======================= */
+let confirmationResult = null;
+let workerMobile10 = "";   // 10 digit
+let workerMobileFull = ""; // +91 format
 
-/* 📤 SEND OTP */
 function sendOTP() {
-  workerMobile = document.getElementById("phone").value;
+  workerMobile10 = document.getElementById("phone").value.trim();
 
-  if (!workerMobile) {
-    alert("Mobile number daalein");
+  if (!/^[0-9]{10}$/.test(workerMobile10)) {
+    alert("कृपया सही 10 digit mobile number डालें");
     return;
   }
 
-  auth.signInWithPhoneNumber(workerMobile, window.recaptchaVerifier)
+  workerMobileFull = "+91" + workerMobile10;
+
+  auth.signInWithPhoneNumber(workerMobileFull, window.recaptchaVerifier)
     .then(result => {
       confirmationResult = result;
-      alert("OTP sent");
+      alert("OTP भेज दिया गया है");
     })
     .catch(err => {
-      alert("Error: " + err.message);
+      alert("OTP Error: " + err.message);
     });
 }
 
-/* 🔑 VERIFY OTP */
 function verifyOTP() {
-  const otp = document.getElementById("otp").value;
+  const otp = document.getElementById("otp").value.trim();
+
+  if (!otp || !confirmationResult) {
+    alert("OTP valid नहीं है");
+    return;
+  }
 
   confirmationResult.confirm(otp)
     .then(() => {
@@ -95,32 +115,34 @@ function verifyOTP() {
       loadBookings();
     })
     .catch(() => {
-      alert("Wrong OTP");
+      alert("गलत OTP");
     });
 }
 
-/* 📦 LOAD BOOKINGS */
+/* =======================
+   📦 LOAD BOOKINGS
+======================= */
 function loadBookings() {
-  const cleanMobile = workerMobile.replace("+91","");
-
   db.collection("bookings")
-    .where("workerMobile", "==", cleanMobile)
+    .where("workerMobile", "==", workerMobile10)
     .onSnapshot(snapshot => {
-      bookings.innerHTML = "";
+      const box = document.getElementById("bookings");
+      box.innerHTML = "";
 
       if (snapshot.empty) {
-        bookings.innerHTML = "Koi booking nahi hai";
+        box.innerHTML = "कोई booking नहीं है";
         return;
       }
 
       snapshot.forEach(doc => {
         const d = doc.data();
-        bookings.innerHTML += `
+        box.innerHTML += `
           <div class="card">
             <b>${d.service}</b><br>
-            Grahak: ${d.name} (${d.mobile})<br>
-            Gaon: ${d.village}<br>
+            ग्राहक: ${d.name} (${d.mobile})<br>
+            गाँव: ${d.village}<br>
             Status: ${d.status || "pending"}<br>
+
             <a href="tel:${d.mobile}">
               <button class="call">📞 Customer Call</button>
             </a>
