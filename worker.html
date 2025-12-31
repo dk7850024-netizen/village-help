@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <title>Village Help – Worker Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body { font-family: Arial; background:#f2f2f2; }
+    .box { max-width:450px; margin:auto; background:#fff; padding:15px; margin-top:20px; border-radius:10px; }
+    h2 { text-align:center; }
+    .list { background:#eef6ff; padding:10px; margin-top:10px; border-radius:6px; }
+    button { width:100%; padding:10px; margin-top:8px; border:none; font-size:16px; }
+    .call { background:#007bff; color:#fff; }
+    .accept { background:#28a745; color:#fff; }
+    .done { background:#aaa; color:#fff; }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+  <h2>👷 My Bookings</h2>
+  <div id="myBookings">Loading...</div>
+</div>
+
+<script>
+  // 🔹 Firebase config (आपकी real config)
+  const firebaseConfig = {
+    apiKey: "AIzaSyByMmFPEZEH6ECLKNHyL6RdvNrY-zWHBpU",
+    authDomain: "village-help.firebaseapp.com",
+    projectId: "village-help",
+    storageBucket: "village-help.firebasestorage.app",
+    messagingSenderId: "639842342038",
+    appId: "1:639842342038:web:7effe000ed9bae0fc31eb7"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  // ⚠️ IMPORTANT: यही number worker का होना चाहिए
+  const WORKER_MOBILE = "8888888888"; // Ramesh का number
+
+  function loadBookings() {
+    db.collection("bookings")
+      .where("workerMobile", "==", WORKER_MOBILE)
+      .orderBy("time", "desc")
+      .onSnapshot(snapshot => {
+        const box = document.getElementById("myBookings");
+        box.innerHTML = "";
+
+        if (snapshot.empty) {
+          box.innerHTML = "कोई booking नहीं है";
+          return;
+        }
+
+        snapshot.forEach(doc => {
+          const d = doc.data();
+          const status = d.status || "pending";
+
+          box.innerHTML += `
+            <div class="list">
+              <b>${d.service}</b><br>
+              ग्राहक: ${d.name} (${d.mobile})<br>
+              गाँव: ${d.village}<br>
+              Status: <b>${status}</b><br>
+
+              <a href="tel:${d.mobile}">
+                <button class="call">📞 Customer Call</button>
+              </a>
+
+              ${
+                status === "pending"
+                ? `<button class="accept" onclick="acceptBooking('${doc.id}')">✅ Accept</button>`
+                : `<button class="done" disabled>Accepted</button>`
+              }
+            </div>
+          `;
+        });
+      });
+  }
+
+  function acceptBooking(id) {
+    db.collection("bookings").doc(id).update({
+      status: "accepted"
+    }).then(() => {
+      alert("Booking Accepted");
+    }).catch(err => {
+      alert("Error: " + err.message);
+    });
+  }
+
+  window.onload = loadBookings;
+</script>
+
+</body>
+</html>
