@@ -11,13 +11,32 @@
 
   <style>
     body { font-family: Arial; background:#f2f2f2; }
-    .box { max-width:450px; margin:auto; background:#fff; padding:15px; margin-top:20px; border-radius:10px; }
+    .box {
+      max-width:450px;
+      margin:auto;
+      background:#fff;
+      padding:15px;
+      margin-top:20px;
+      border-radius:10px;
+    }
     h2 { text-align:center; }
-    .list { background:#eef6ff; padding:10px; margin-top:10px; border-radius:6px; }
-    button { width:100%; padding:10px; margin-top:8px; border:none; font-size:16px; }
+    .list {
+      background:#eef6ff;
+      padding:10px;
+      margin-top:10px;
+      border-radius:6px;
+    }
+    button {
+      width:100%;
+      padding:10px;
+      margin-top:8px;
+      border:none;
+      font-size:16px;
+      cursor:pointer;
+    }
     .call { background:#007bff; color:#fff; }
     .accept { background:#28a745; color:#fff; }
-    .done { background:#aaa; color:#fff; }
+    .done { background:#999; color:#fff; }
   </style>
 </head>
 
@@ -29,7 +48,9 @@
 </div>
 
 <script>
-  // 🔹 Firebase config (आपकी real config)
+  /* =========================
+     FIREBASE CONFIG
+     ========================= */
   const firebaseConfig = {
     apiKey: "AIzaSyByMmFPEZEH6ECLKNHyL6RdvNrY-zWHBpU",
     authDomain: "village-help.firebaseapp.com",
@@ -42,56 +63,73 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  // ⚠️ IMPORTANT: यही number worker का होना चाहिए
-  const WORKER_MOBILE = "8888888888"; // Ramesh का number
+  /* =========================
+     IMPORTANT:
+     workerMobile EXACT match
+     ========================= */
+  const WORKER_MOBILE = "8888888888"; // Ramesh का नंबर (string)
 
+  /* =========================
+     LOAD BOOKINGS
+     ========================= */
   function loadBookings() {
+    const box = document.getElementById("myBookings");
+
     db.collection("bookings")
       .where("workerMobile", "==", WORKER_MOBILE)
-      .orderBy("time", "desc")
-      .onSnapshot(snapshot => {
-        const box = document.getElementById("myBookings");
-        box.innerHTML = "";
+      .onSnapshot(
+        (snapshot) => {
+          box.innerHTML = "";
 
-        if (snapshot.empty) {
-          box.innerHTML = "कोई booking नहीं है";
-          return;
+          if (snapshot.empty) {
+            box.innerHTML = "कोई booking नहीं है";
+            return;
+          }
+
+          snapshot.forEach((doc) => {
+            const d = doc.data();
+            const status = d.status ? d.status : "pending";
+
+            box.innerHTML += `
+              <div class="list">
+                <b>${d.service}</b><br>
+                ग्राहक: ${d.name} (${d.mobile})<br>
+                गाँव: ${d.village}<br>
+                Status: <b>${status}</b><br>
+
+                <a href="tel:${d.mobile}">
+                  <button class="call">📞 Customer Call</button>
+                </a>
+
+                ${
+                  status === "pending"
+                    ? `<button class="accept" onclick="acceptBooking('${doc.id}')">✅ Accept</button>`
+                    : `<button class="done" disabled>Accepted</button>`
+                }
+              </div>
+            `;
+          });
+        },
+        (error) => {
+          console.error("Firestore Error:", error);
+          box.innerHTML = "❌ Data load error";
         }
-
-        snapshot.forEach(doc => {
-          const d = doc.data();
-          const status = d.status || "pending";
-
-          box.innerHTML += `
-            <div class="list">
-              <b>${d.service}</b><br>
-              ग्राहक: ${d.name} (${d.mobile})<br>
-              गाँव: ${d.village}<br>
-              Status: <b>${status}</b><br>
-
-              <a href="tel:${d.mobile}">
-                <button class="call">📞 Customer Call</button>
-              </a>
-
-              ${
-                status === "pending"
-                ? `<button class="accept" onclick="acceptBooking('${doc.id}')">✅ Accept</button>`
-                : `<button class="done" disabled>Accepted</button>`
-              }
-            </div>
-          `;
-        });
-      });
+      );
   }
 
+  /* =========================
+     ACCEPT BOOKING
+     ========================= */
   function acceptBooking(id) {
-    db.collection("bookings").doc(id).update({
-      status: "accepted"
-    }).then(() => {
-      alert("Booking Accepted");
-    }).catch(err => {
-      alert("Error: " + err.message);
-    });
+    db.collection("bookings")
+      .doc(id)
+      .update({ status: "accepted" })
+      .then(() => {
+        alert("✅ Booking Accepted");
+      })
+      .catch((err) => {
+        alert("❌ Error: " + err.message);
+      });
   }
 
   window.onload = loadBookings;
