@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <title>Village Help - Worker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: Arial; background:#f2f2f2; }
+    .box { max-width:420px; margin:auto; background:#fff; padding:20px; margin-top:20px; border-radius:10px; }
+    input, button { width:100%; padding:10px; margin-top:10px; }
+    button { background:#28a745; color:#fff; border:none; }
+    .card { background:#eef6ff; padding:10px; margin-top:10px; border-radius:5px; }
+    .call { background:#007bff; margin-top:5px; }
+  </style>
+</head>
+<body>
+
+<!-- Login -->
+<div class="box" id="loginBox">
+  <h2>Worker Login</h2>
+  <input id="mobile" placeholder="Mobile Number">
+  <button onclick="login()">Login</button>
+</div>
+
+<!-- Dashboard -->
+<div class="box" id="panel" style="display:none;">
+  <h2>My Bookings</h2>
+  <div id="list"></div>
+</div>
+
+<script>
+  // 🔴 Firebase config (आपकी वाली)
+  const firebaseConfig = {
+    apiKey: "AIzaSyByMmFPEZEH6ECLKNHyL6RdvNrY-zWHBpU",
+    authDomain: "village-help.firebaseapp.com",
+    projectId: "village-help"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  let workerId = "";
+
+  async function login() {
+    let m = mobile.value;
+    let snap = await db.collection("workers")
+      .where("mobile","==",m)
+      .where("active","==",true)
+      .limit(1)
+      .get();
+
+    if (snap.empty) {
+      alert("आप registered worker नहीं हैं");
+      return;
+    }
+
+    workerId = snap.docs[0].id;
+    loginBox.style.display="none";
+    panel.style.display="block";
+    loadBookings();
+  }
+
+  function loadBookings() {
+    db.collection("bookings")
+      .where("workerMobile","==",mobile.value)
+      .onSnapshot(snap=>{
+        list.innerHTML="";
+        snap.forEach(doc=>{
+          let d=doc.data();
+          list.innerHTML+=`
+            <div class="card">
+              <b>${d.service}</b><br>
+              ग्राहक: ${d.name}<br>
+              गाँव: ${d.village}<br>
+              <a href="tel:${d.mobile}">
+                <button class="call">📞 Customer Call</button>
+              </a>
+              <button onclick="accept('${doc.id}')">✅ Accept</button>
+            </div>`;
+        });
+      });
+  }
+
+  function accept(id){
+    db.collection("bookings").doc(id).update({status:"accepted"});
+    alert("Booking Accepted");
+  }
+</script>
+</body>
+</html>
