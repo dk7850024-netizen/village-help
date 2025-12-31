@@ -2,12 +2,11 @@
 <html lang="hi">
 <head>
 <meta charset="UTF-8">
-<title>Village Help – Worker Login</title>
+<title>Village Help – Worker Panel</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Firebase SDKs -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
@@ -16,8 +15,9 @@ body { font-family: Arial; background:#f2f2f2; }
 input, button { width:100%; padding:10px; margin-top:10px; }
 button { background:#28a745; color:#fff; border:none; font-size:16px; }
 .card { background:#eef6ff; padding:10px; margin-top:10px; border-radius:6px; }
-.call { background:#007bff; }
-.accept { background:#28a745; }
+.call { background:#007bff; margin-top:5px; }
+.accept { background:#28a745; margin-top:5px; }
+.done { background:#aaa; margin-top:5px; }
 </style>
 </head>
 
@@ -26,16 +26,8 @@ button { background:#28a745; color:#fff; border:none; font-size:16px; }
 <!-- LOGIN -->
 <div class="box" id="loginBox">
   <h2>👷 Worker Login</h2>
-
-  <!-- केवल 10 digit number -->
-  <input id="phone" placeholder="Mobile (10 digit)" maxlength="10">
-
-  <div id="recaptcha"></div>
-
-  <button onclick="sendOTP()">Send OTP</button>
-
-  <input id="otp" placeholder="Enter OTP">
-  <button onclick="verifyOTP()">Verify OTP</button>
+  <input id="mobile" placeholder="Mobile Number (10 digit)">
+  <button onclick="login()">Login</button>
 </div>
 
 <!-- DASHBOARD -->
@@ -45,10 +37,7 @@ button { background:#28a745; color:#fff; border:none; font-size:16px; }
 </div>
 
 <script>
-/* =======================
-   🔥 FIREBASE CONFIG
-   (आपका NEW project)
-======================= */
+/* 🔹 Firebase CONFIG (YOUR NEW PROJECT) */
 const firebaseConfig = {
   apiKey: "AIzaSyDOBjOo5YsBndo8HPQv66ClmthIHqf0gmw",
   authDomain: "village-help-6dda3.firebaseapp.com",
@@ -59,72 +48,41 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-
-const auth = firebase.auth();
 const db = firebase.firestore();
 
-/* =======================
-   🔐 RECAPTCHA
-======================= */
-window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier(
-  'recaptcha',
-  {
-    size: 'invisible'
-  }
-);
+let WORKER_MOBILE = "";
 
-/* =======================
-   📲 OTP LOGIN
-======================= */
-let confirmationResult = null;
-let workerMobile10 = "";   // 10 digit
-let workerMobileFull = ""; // +91 format
+/* 🔐 LOGIN */
+async function login() {
+  const mobile = document.getElementById("mobile").value.trim();
 
-function sendOTP() {
-  workerMobile10 = document.getElementById("phone").value.trim();
-
-  if (!/^[0-9]{10}$/.test(workerMobile10)) {
-    alert("कृपया सही 10 digit mobile number डालें");
+  if (mobile.length !== 10) {
+    alert("10 digit mobile number डालें");
     return;
   }
 
-  workerMobileFull = "+91" + workerMobile10;
+  const snap = await db.collection("workers")
+    .where("mobile", "==", mobile)
+    .where("active", "==", true)
+    .limit(1)
+    .get();
 
-  auth.signInWithPhoneNumber(workerMobileFull, window.recaptchaVerifier)
-    .then(result => {
-      confirmationResult = result;
-      alert("OTP भेज दिया गया है");
-    })
-    .catch(err => {
-      alert("OTP Error: " + err.message);
-    });
-}
-
-function verifyOTP() {
-  const otp = document.getElementById("otp").value.trim();
-
-  if (!otp || !confirmationResult) {
-    alert("OTP valid नहीं है");
+  if (snap.empty) {
+    alert("आप registered worker नहीं हैं");
     return;
   }
 
-  confirmationResult.confirm(otp)
-    .then(() => {
-      document.getElementById("loginBox").style.display = "none";
-      document.getElementById("panel").style.display = "block";
-      loadBookings();
-    })
-    .catch(() => {
-      alert("गलत OTP");
-    });
+  WORKER_MOBILE = mobile;
+  document.getElementById("loginBox").style.display = "none";
+  document.getElementById("panel").style.display = "block";
+  loadBookings();
 }
 
-/* =======================
-   📦 LOAD BOOKINGS
-======================= */
+/* 📋 LOAD BOOKINGS */
 function loadBookings() {
   db.collection("bookings")
-    .where("workerMobile", "==", workerMobile10)
+    .where("workerMobile", "==", WORKER_MOBILE)
+    .orderBy("time", "desc")
     .onSnapshot(snapshot => {
       const box = document.getElementById("bookings");
       box.innerHTML = "";
@@ -136,20 +94,35 @@ function loadBookings() {
 
       snapshot.forEach(doc => {
         const d = doc.data();
+        const status = d.status || "pending";
+
         box.innerHTML += `
           <div class="card">
             <b>${d.service}</b><br>
             ग्राहक: ${d.name} (${d.mobile})<br>
             गाँव: ${d.village}<br>
-            Status: ${d.status || "pending"}<br>
+            Status: <b>${status}</b><br>
 
             <a href="tel:${d.mobile}">
               <button class="call">📞 Customer Call</button>
             </a>
+
+            ${
+              status === "pending"
+              ? `<button class="accept" onclick="acceptBooking('${doc.id}')">✅ Accept</button>`
+              : `<button class="done" disabled>Accepted</button>`
+            }
           </div>
         `;
       });
     });
+}
+
+/* ✅ ACCEPT BOOKING */
+function acceptBooking(id) {
+  db.collection("bookings").doc(id).update({
+    status: "accepted"
+  });
 }
 </script>
 
