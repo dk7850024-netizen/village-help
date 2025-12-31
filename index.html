@@ -2,88 +2,104 @@
 <html lang="hi">
 <head>
   <meta charset="UTF-8">
-  <title>Village Help - Worker</title>
+  <title>Village Help</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
   <style>
     body { font-family: Arial; background:#f2f2f2; }
-    .box { max-width:420px; margin:auto; background:#fff; padding:20px; margin-top:20px; border-radius:10px; }
-    input, button { width:100%; padding:10px; margin-top:10px; }
-    button { background:#28a745; color:#fff; border:none; }
-    .card { background:#eef6ff; padding:10px; margin-top:10px; border-radius:5px; }
-    .call { background:#007bff; margin-top:5px; }
+    .container { max-width:420px; margin:auto; background:#fff; padding:20px; margin-top:20px; border-radius:10px; }
+    input, select, button { width:100%; padding:10px; margin-top:10px; }
+    button { background:#28a745; color:#fff; border:none; font-size:18px; }
+    .confirm { display:none; background:#e8f8f5; padding:15px; margin-top:15px; }
+    .call { background:#007bff; margin-top:10px; }
   </style>
 </head>
+
 <body>
+<div class="container">
+  <h2>Village Help</h2>
 
-<!-- Login -->
-<div class="box" id="loginBox">
-  <h2>Worker Login</h2>
-  <input id="mobile" placeholder="Mobile Number">
-  <button onclick="login()">Login</button>
-</div>
+  <select id="service">
+    <option value="">Service चुनें</option>
+    <option>Electrician</option>
+    <option>Plumber</option>
+  </select>
 
-<!-- Dashboard -->
-<div class="box" id="panel" style="display:none;">
-  <h2>My Bookings</h2>
-  <div id="list"></div>
+  <input id="name" placeholder="आपका नाम">
+  <input id="mobile" placeholder="Mobile नंबर">
+  <input id="village" placeholder="गाँव का नाम">
+
+  <button onclick="book()">Service Book करें</button>
+
+  <div class="confirm" id="confirm">
+    <h3>✅ Booking Confirm</h3>
+    <p id="info"></p>
+    <a id="callWorker"><button class="call">📞 Worker को Call करें</button></a>
+    <a href="tel:9999999999"><button class="call">📞 Admin को Call करें</button></a>
+  </div>
 </div>
 
 <script>
-  // 🔴 Firebase config (आपकी वाली)
+  // ✅ Firebase Config (FINAL – CONNECTED)
   const firebaseConfig = {
     apiKey: "AIzaSyByMmFPEZEH6ECLKNHyL6RdvNrY-zWHBpU",
     authDomain: "village-help.firebaseapp.com",
-    projectId: "village-help"
+    projectId: "village-help",
+    storageBucket: "village-help.firebasestorage.app",
+    messagingSenderId: "639842342038",
+    appId: "1:639842342038:web:7effe000ed9bae0fc31eb7",
+    measurementId: "G-EQT8S6Y8PD"
   };
+
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
-  let workerId = "";
 
-  async function login() {
-    let m = mobile.value;
-    let snap = await db.collection("workers")
-      .where("mobile","==",m)
-      .where("active","==",true)
-      .limit(1)
-      .get();
+  async function book() {
+    let service = document.getElementById("service").value;
+    let name = document.getElementById("name").value;
+    let mobile = document.getElementById("mobile").value;
+    let village = document.getElementById("village").value;
 
-    if (snap.empty) {
-      alert("आप registered worker नहीं हैं");
+    if (!service || !name || !mobile || !village) {
+      alert("सभी जानकारी भरें");
       return;
     }
 
-    workerId = snap.docs[0].id;
-    loginBox.style.display="none";
-    panel.style.display="block";
-    loadBookings();
-  }
+    let workerSnap = await db.collection("workers")
+      .where("service", "==", service)
+      .where("active", "==", true)
+      .limit(1)
+      .get();
 
-  function loadBookings() {
-    db.collection("bookings")
-      .where("workerMobile","==",mobile.value)
-      .onSnapshot(snap=>{
-        list.innerHTML="";
-        snap.forEach(doc=>{
-          let d=doc.data();
-          list.innerHTML+=`
-            <div class="card">
-              <b>${d.service}</b><br>
-              ग्राहक: ${d.name}<br>
-              गाँव: ${d.village}<br>
-              <a href="tel:${d.mobile}">
-                <button class="call">📞 Customer Call</button>
-              </a>
-              <button onclick="accept('${doc.id}')">✅ Accept</button>
-            </div>`;
-        });
-      });
-  }
+    if (workerSnap.empty) {
+      alert("अभी worker उपलब्ध नहीं है");
+      return;
+    }
 
-  function accept(id){
-    db.collection("bookings").doc(id).update({status:"accepted"});
-    alert("Booking Accepted");
+    let worker = workerSnap.docs[0].data();
+
+    await db.collection("bookings").add({
+      name,
+      mobile,
+      village,
+      service,
+      workerName: worker.name,
+      workerMobile: worker.mobile,
+      time: new Date()
+    });
+
+    document.getElementById("info").innerHTML = `
+      <b>Service:</b> ${service}<br>
+      <b>Worker:</b> ${worker.name}<br>
+      <b>Village:</b> ${village}
+    `;
+
+    document.getElementById("callWorker").href = "tel:" + worker.mobile;
+    document.getElementById("confirm").style.display = "block";
   }
 </script>
 </body>
