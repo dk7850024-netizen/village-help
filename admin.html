@@ -2,7 +2,7 @@
 <html lang="hi">
 <head>
   <meta charset="UTF-8">
-  <title>Village Help – Admin Panel</title>
+  <title>Village Help – Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Firebase -->
@@ -11,8 +11,8 @@
 
   <style>
     body { font-family: Arial; background:#f2f2f2; }
-    .box { max-width:450px; margin:auto; background:#fff; padding:20px; margin-top:20px; border-radius:10px; }
-    input, button { width:100%; padding:10px; margin-top:10px; }
+    .box { max-width:500px; margin:auto; background:#fff; padding:20px; margin-top:20px; border-radius:10px; }
+    input, select, button { width:100%; padding:10px; margin-top:10px; }
     button { background:#333; color:#fff; border:none; }
     .card { background:#eef6ff; padding:10px; margin-top:10px; border-radius:6px; }
   </style>
@@ -30,9 +30,18 @@
 <!-- 📊 DASHBOARD -->
 <div class="box" id="dashboard" style="display:none;">
   <h2>📊 Admin Dashboard</h2>
-  <button onclick="loadBookings()">📋 All Bookings</button>
-  <button onclick="loadWorkers()">👷 All Workers</button>
-  <div id="data"></div>
+
+  <h3>➕ Add Worker</h3>
+  <input id="wname" placeholder="Worker Name">
+  <input id="wmobile" placeholder="Mobile Number">
+  <select id="wservice">
+    <option>Electrician</option>
+    <option>Plumber</option>
+  </select>
+  <button onclick="addWorker()">Add Worker</button>
+
+  <h3>👷 All Workers</h3>
+  <div id="workers"></div>
 </div>
 
 <script>
@@ -54,42 +63,49 @@
     }
     loginBox.style.display = "none";
     dashboard.style.display = "block";
+    loadWorkers();
   }
 
-  // 📋 BOOKINGS
-  function loadBookings() {
-    data.innerHTML = "";
-    db.collection("bookings").orderBy("time","desc").get().then(snap=>{
-      snap.forEach(doc=>{
-        let d = doc.data();
-        data.innerHTML += `
+  // ➕ Add Worker
+  function addWorker() {
+    db.collection("workers").add({
+      name: wname.value,
+      mobile: wmobile.value,
+      service: wservice.value,
+      active: true
+    }).then(() => {
+      alert("Worker Added");
+      wname.value = wmobile.value = "";
+      loadWorkers();
+    });
+  }
+
+  // 👷 Load Workers
+  function loadWorkers() {
+    workers.innerHTML = "";
+    db.collection("workers").onSnapshot(snap => {
+      workers.innerHTML = "";
+      snap.forEach(doc => {
+        let w = doc.data();
+        workers.innerHTML += `
           <div class="card">
-            <b>${d.service}</b><br>
-            Customer: ${d.name} (${d.mobile})<br>
-            Worker: ${d.workerName} (${d.workerMobile})<br>
-            Village: ${d.village}<br>
-            Status: ${d.status || "pending"}
+            <b>${w.name}</b><br>
+            Mobile: ${w.mobile}<br>
+            Service: ${w.service}<br>
+            Status: <b>${w.active ? "Active" : "Inactive"}</b><br>
+            <button onclick="toggleWorker('${doc.id}', ${w.active})">
+              ${w.active ? "Deactivate" : "Activate"}
+            </button>
           </div>
         `;
       });
     });
   }
 
-  // 👷 WORKERS
-  function loadWorkers() {
-    data.innerHTML = "";
-    db.collection("workers").get().then(snap=>{
-      snap.forEach(doc=>{
-        let w = doc.data();
-        data.innerHTML += `
-          <div class="card">
-            <b>${w.name}</b><br>
-            Mobile: ${w.mobile}<br>
-            Service: ${w.service}<br>
-            Active: ${w.active}
-          </div>
-        `;
-      });
+  // 🔁 Activate / Deactivate
+  function toggleWorker(id, status) {
+    db.collection("workers").doc(id).update({
+      active: !status
     });
   }
 </script>
