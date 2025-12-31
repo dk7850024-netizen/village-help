@@ -1,124 +1,101 @@
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-  <meta charset="UTF-8">
-  <title>Village Help – Worker Login</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>Village Help – Worker Login</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-  <style>
-    body { font-family: Arial; background:#f2f2f2; }
-    .box { max-width:420px; margin:auto; background:#fff; padding:20px; margin-top:30px; border-radius:10px; }
-    input, button { width:100%; padding:12px; margin-top:10px; font-size:16px; }
-    button { background:#28a745; color:#fff; border:none; }
-    .card { background:#eef6ff; padding:12px; margin-top:12px; border-radius:6px; }
-    .call { background:#007bff; margin-top:8px; }
-    .done { background:#aaa; }
-  </style>
+<style>
+body { font-family: Arial; background:#f2f2f2; }
+.box { max-width:420px; margin:auto; background:#fff; padding:20px; margin-top:20px; border-radius:10px; }
+input, button { width:100%; padding:10px; margin-top:10px; }
+button { background:#28a745; color:#fff; border:none; }
+.card { background:#eef6ff; padding:10px; margin-top:10px; border-radius:6px; }
+.call { background:#007bff; }
+.accept { background:#28a745; }
+</style>
 </head>
 
 <body>
 
-<!-- 🔐 LOGIN -->
+<!-- LOGIN -->
 <div class="box" id="loginBox">
   <h2>👷 Worker Login</h2>
-  <input id="mobileInput" placeholder="Mobile Number">
-  <button onclick="login()">Login</button>
+  <input id="phone" placeholder="+919999999999">
+  <div id="recaptcha"></div>
+  <button onclick="sendOTP()">Send OTP</button>
+  <input id="otp" placeholder="Enter OTP">
+  <button onclick="verifyOTP()">Verify OTP</button>
 </div>
 
-<!-- 📋 DASHBOARD -->
-<div class="box" id="dashboard" style="display:none;">
-  <h2>📋 My Bookings</h2>
-  <div id="bookingList">Loading...</div>
+<!-- DASHBOARD -->
+<div class="box" id="panel" style="display:none;">
+  <h2>My Bookings</h2>
+  <div id="bookings"></div>
 </div>
 
 <script>
-  // Firebase Config
-  const firebaseConfig = {
-    apiKey: "AIzaSyByMmFPEZEH6ECLKNHyL6RdvNrY-zWHBpU",
-    authDomain: "village-help.firebaseapp.com",
-    projectId: "village-help"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+const firebaseConfig = {
+  apiKey: "AIzaSyByMmFPEZEH6ECLKNHyL6RdvNrY-zWHBpU",
+  authDomain: "village-help.firebaseapp.com",
+  projectId: "village-help"
+};
 
-  let WORKER_MOBILE = "";
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-  // 🔐 LOGIN FUNCTION
-  async function login() {
-    const mobile = document.getElementById("mobileInput").value.trim();
-    if (!mobile) {
-      alert("Mobile number डालें");
-      return;
-    }
+window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier(
+  'recaptcha',
+  { size: 'invisible' }
+);
 
-    const snap = await db.collection("workers")
-      .where("mobile", "==", mobile)
-      .where("active", "==", true)
-      .limit(1)
-      .get();
+let confirmationResult;
+let workerMobile = "";
 
-    if (snap.empty) {
-      alert("आप registered worker नहीं हैं");
-      return;
-    }
+function sendOTP() {
+  workerMobile = document.getElementById("phone").value;
+  auth.signInWithPhoneNumber(workerMobile, window.recaptchaVerifier)
+    .then(result => {
+      confirmationResult = result;
+      alert("OTP sent");
+    })
+    .catch(err => alert(err.message));
+}
 
-    WORKER_MOBILE = mobile;
-    document.getElementById("loginBox").style.display = "none";
-    document.getElementById("dashboard").style.display = "block";
+function verifyOTP() {
+  let otp = document.getElementById("otp").value;
+  confirmationResult.confirm(otp).then(() => {
+    loginBox.style.display = "none";
+    panel.style.display = "block";
     loadBookings();
-  }
+  }).catch(() => alert("Wrong OTP"));
+}
 
-  // 📥 LOAD BOOKINGS
-  function loadBookings() {
-    db.collection("bookings")
-      .where("workerMobile", "==", WORKER_MOBILE)
-      .orderBy("time", "desc")
-      .onSnapshot(snapshot => {
-        const box = document.getElementById("bookingList");
-        box.innerHTML = "";
-
-        if (snapshot.empty) {
-          box.innerHTML = "कोई booking नहीं है";
-          return;
-        }
-
-        snapshot.forEach(doc => {
-          const d = doc.data();
-          const status = d.status || "pending";
-
-          box.innerHTML += `
-            <div class="card">
-              <b>${d.service}</b><br>
-              ग्राहक: ${d.name} (${d.mobile})<br>
-              गाँव: ${d.village}<br>
-              Status: <b>${status}</b><br>
-
-              <a href="tel:${d.mobile}">
-                <button class="call">📞 Customer Call</button>
-              </a>
-
-              ${
-                status === "pending"
-                ? `<button onclick="acceptBooking('${doc.id}')">✅ Accept</button>`
-                : `<button class="done" disabled>Accepted</button>`
-              }
-            </div>
-          `;
-        });
+function loadBookings() {
+  db.collection("bookings")
+    .where("workerMobile", "==", workerMobile.replace("+91",""))
+    .onSnapshot(snap => {
+      bookings.innerHTML = "";
+      snap.forEach(doc => {
+        let d = doc.data();
+        bookings.innerHTML += `
+          <div class="card">
+            <b>${d.service}</b><br>
+            ग्राहक: ${d.name} (${d.mobile})<br>
+            गाँव: ${d.village}<br>
+            Status: ${d.status || "pending"}<br>
+            <a href="tel:${d.mobile}">
+              <button class="call">📞 Customer Call</button>
+            </a>
+          </div>`;
       });
-  }
-
-  // ✅ ACCEPT BOOKING
-  function acceptBooking(id) {
-    db.collection("bookings").doc(id).update({
-      status: "accepted"
     });
-  }
+}
 </script>
-
 </body>
 </html>
