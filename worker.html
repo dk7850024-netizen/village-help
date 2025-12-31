@@ -2,7 +2,7 @@
 <html lang="hi">
 <head>
   <meta charset="UTF-8">
-  <title>Village Help – Worker Panel</title>
+  <title>Village Help – Worker Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Firebase -->
@@ -11,128 +11,113 @@
 
   <style>
     body { font-family: Arial; background:#f2f2f2; }
-    .box {
-      max-width:450px;
-      margin:auto;
-      background:#fff;
-      padding:15px;
-      margin-top:20px;
-      border-radius:10px;
-    }
-    h2 { text-align:center; }
-    .list {
-      background:#eef6ff;
-      padding:10px;
-      margin-top:10px;
-      border-radius:6px;
-    }
-    button {
-      width:100%;
-      padding:10px;
-      margin-top:8px;
-      border:none;
-      font-size:16px;
-      cursor:pointer;
-    }
-    .call { background:#007bff; color:#fff; }
-    .accept { background:#28a745; color:#fff; }
-    .done { background:#999; color:#fff; }
+    .box { max-width:420px; margin:auto; background:#fff; padding:20px; margin-top:30px; border-radius:10px; }
+    input, button { width:100%; padding:12px; margin-top:10px; font-size:16px; }
+    button { background:#28a745; color:#fff; border:none; }
+    .card { background:#eef6ff; padding:12px; margin-top:12px; border-radius:6px; }
+    .call { background:#007bff; margin-top:8px; }
+    .done { background:#aaa; }
   </style>
 </head>
 
 <body>
 
-<div class="box">
-  <h2>👷 My Bookings</h2>
-  <div id="myBookings">Loading...</div>
+<!-- 🔐 LOGIN -->
+<div class="box" id="loginBox">
+  <h2>👷 Worker Login</h2>
+  <input id="mobileInput" placeholder="Mobile Number">
+  <button onclick="login()">Login</button>
+</div>
+
+<!-- 📋 DASHBOARD -->
+<div class="box" id="dashboard" style="display:none;">
+  <h2>📋 My Bookings</h2>
+  <div id="bookingList">Loading...</div>
 </div>
 
 <script>
-  /* =========================
-     FIREBASE CONFIG
-     ========================= */
+  // Firebase Config
   const firebaseConfig = {
     apiKey: "AIzaSyByMmFPEZEH6ECLKNHyL6RdvNrY-zWHBpU",
     authDomain: "village-help.firebaseapp.com",
-    projectId: "village-help",
-    storageBucket: "village-help.firebasestorage.app",
-    messagingSenderId: "639842342038",
-    appId: "1:639842342038:web:7effe000ed9bae0fc31eb7"
+    projectId: "village-help"
   };
-
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  /* =========================
-     IMPORTANT:
-     workerMobile EXACT match
-     ========================= */
-  const WORKER_MOBILE = "8888888888"; // Ramesh का नंबर (string)
+  let WORKER_MOBILE = "";
 
-  /* =========================
-     LOAD BOOKINGS
-     ========================= */
-  function loadBookings() {
-    const box = document.getElementById("myBookings");
+  // 🔐 LOGIN FUNCTION
+  async function login() {
+    const mobile = document.getElementById("mobileInput").value.trim();
+    if (!mobile) {
+      alert("Mobile number डालें");
+      return;
+    }
 
-    db.collection("bookings")
-      .where("workerMobile", "==", WORKER_MOBILE)
-      .onSnapshot(
-        (snapshot) => {
-          box.innerHTML = "";
+    const snap = await db.collection("workers")
+      .where("mobile", "==", mobile)
+      .where("active", "==", true)
+      .limit(1)
+      .get();
 
-          if (snapshot.empty) {
-            box.innerHTML = "कोई booking नहीं है";
-            return;
-          }
+    if (snap.empty) {
+      alert("आप registered worker नहीं हैं");
+      return;
+    }
 
-          snapshot.forEach((doc) => {
-            const d = doc.data();
-            const status = d.status ? d.status : "pending";
-
-            box.innerHTML += `
-              <div class="list">
-                <b>${d.service}</b><br>
-                ग्राहक: ${d.name} (${d.mobile})<br>
-                गाँव: ${d.village}<br>
-                Status: <b>${status}</b><br>
-
-                <a href="tel:${d.mobile}">
-                  <button class="call">📞 Customer Call</button>
-                </a>
-
-                ${
-                  status === "pending"
-                    ? `<button class="accept" onclick="acceptBooking('${doc.id}')">✅ Accept</button>`
-                    : `<button class="done" disabled>Accepted</button>`
-                }
-              </div>
-            `;
-          });
-        },
-        (error) => {
-          console.error("Firestore Error:", error);
-          box.innerHTML = "❌ Data load error";
-        }
-      );
+    WORKER_MOBILE = mobile;
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+    loadBookings();
   }
 
-  /* =========================
-     ACCEPT BOOKING
-     ========================= */
-  function acceptBooking(id) {
+  // 📥 LOAD BOOKINGS
+  function loadBookings() {
     db.collection("bookings")
-      .doc(id)
-      .update({ status: "accepted" })
-      .then(() => {
-        alert("✅ Booking Accepted");
-      })
-      .catch((err) => {
-        alert("❌ Error: " + err.message);
+      .where("workerMobile", "==", WORKER_MOBILE)
+      .orderBy("time", "desc")
+      .onSnapshot(snapshot => {
+        const box = document.getElementById("bookingList");
+        box.innerHTML = "";
+
+        if (snapshot.empty) {
+          box.innerHTML = "कोई booking नहीं है";
+          return;
+        }
+
+        snapshot.forEach(doc => {
+          const d = doc.data();
+          const status = d.status || "pending";
+
+          box.innerHTML += `
+            <div class="card">
+              <b>${d.service}</b><br>
+              ग्राहक: ${d.name} (${d.mobile})<br>
+              गाँव: ${d.village}<br>
+              Status: <b>${status}</b><br>
+
+              <a href="tel:${d.mobile}">
+                <button class="call">📞 Customer Call</button>
+              </a>
+
+              ${
+                status === "pending"
+                ? `<button onclick="acceptBooking('${doc.id}')">✅ Accept</button>`
+                : `<button class="done" disabled>Accepted</button>`
+              }
+            </div>
+          `;
+        });
       });
   }
 
-  window.onload = loadBookings;
+  // ✅ ACCEPT BOOKING
+  function acceptBooking(id) {
+    db.collection("bookings").doc(id).update({
+      status: "accepted"
+    });
+  }
 </script>
 
 </body>
