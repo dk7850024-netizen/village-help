@@ -2,111 +2,95 @@
 <html lang="hi">
 <head>
   <meta charset="UTF-8">
-  <title>Village Help - Admin Panel</title>
+  <title>Village Help – Admin Panel</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <style>
     body { font-family: Arial; background:#f2f2f2; }
-    .box { max-width:500px; margin:auto; background:#fff; padding:20px; margin-top:20px; border-radius:10px; }
-    input, select, button { width:100%; padding:10px; margin-top:10px; }
-    button { background:#007bff; color:#fff; border:none; }
-    h2 { text-align:center; }
-    .list { background:#eef6ff; padding:10px; margin-top:10px; border-radius:5px; }
-    .call { background:#28a745; margin-top:5px; }
+    .box { max-width:450px; margin:auto; background:#fff; padding:20px; margin-top:20px; border-radius:10px; }
+    input, button { width:100%; padding:10px; margin-top:10px; }
+    button { background:#333; color:#fff; border:none; }
+    .card { background:#eef6ff; padding:10px; margin-top:10px; border-radius:6px; }
   </style>
 </head>
 
 <body>
 
-<!-- 🔐 Login -->
+<!-- 🔐 LOGIN -->
 <div class="box" id="loginBox">
-  <h2>Admin Login</h2>
-  <input id="pass" type="password" placeholder="Admin Password">
+  <h2>🔐 Admin Login</h2>
+  <input id="password" type="password" placeholder="Admin Password">
   <button onclick="login()">Login</button>
 </div>
 
-<!-- 👨‍💼 Admin Panel -->
-<div class="box" id="panel" style="display:none;">
-  <h2>Village Help - Admin</h2>
-
-  <h3>➕ Worker जोड़ें</h3>
-  <input id="wname" placeholder="Worker Name">
-  <input id="wmobile" placeholder="Mobile Number">
-  <input id="wvillage" placeholder="Village">
-  <select id="wservice">
-    <option>Electrician</option>
-    <option>Plumber</option>
-  </select>
-  <button onclick="addWorker()">Add Worker</button>
-
-  <h3>📋 Bookings</h3>
-  <div id="bookings"></div>
+<!-- 📊 DASHBOARD -->
+<div class="box" id="dashboard" style="display:none;">
+  <h2>📊 Admin Dashboard</h2>
+  <button onclick="loadBookings()">📋 All Bookings</button>
+  <button onclick="loadWorkers()">👷 All Workers</button>
+  <div id="data"></div>
 </div>
 
 <script>
-  // ✅ Firebase Config (FINAL – SAME AS index.html)
+  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyByMmFPEZEH6ECLKNHyL6RdvNrY-zWHBpU",
     authDomain: "village-help.firebaseapp.com",
-    projectId: "village-help",
-    storageBucket: "village-help.firebasestorage.app",
-    messagingSenderId: "639842342038",
-    appId: "1:639842342038:web:7effe000ed9bae0fc31eb7",
-    measurementId: "G-EQT8S6Y8PD"
+    projectId: "village-help"
   };
-
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  // 🔐 Login
+  const ADMIN_PASSWORD = "Villaghelp123";
+
   function login() {
-    if (pass.value === "villagehelp123") {
-      loginBox.style.display = "none";
-      panel.style.display = "block";
-      loadBookings();
-    } else {
-      alert("गलत पासवर्ड");
+    if (password.value !== ADMIN_PASSWORD) {
+      alert("Wrong password");
+      return;
     }
+    loginBox.style.display = "none";
+    dashboard.style.display = "block";
   }
 
-  // ➕ Add Worker
-  function addWorker() {
-    db.collection("workers").add({
-      name: wname.value,
-      mobile: wmobile.value,
-      village: wvillage.value,
-      service: wservice.value,
-      active: true
-    });
-    alert("Worker Added");
-  }
-
-  // 📋 Load Bookings
+  // 📋 BOOKINGS
   function loadBookings() {
-    db.collection("bookings").orderBy("time","desc")
-      .onSnapshot(snapshot => {
-        bookings.innerHTML = "";
-        snapshot.forEach(doc => {
-          let d = doc.data();
-          bookings.innerHTML += `
-            <div class="list">
-              <b>${d.service}</b><br>
-              ग्राहक: ${d.name} (${d.mobile})<br>
-              Worker: ${d.workerName}<br>
-              गाँव: ${d.village}<br>
-              <a href="tel:${d.mobile}">
-                <button class="call">📞 Customer</button>
-              </a>
-              <a href="tel:${d.workerMobile}">
-                <button class="call">📞 Worker</button>
-              </a>
-            </div>
-          `;
-        });
+    data.innerHTML = "";
+    db.collection("bookings").orderBy("time","desc").get().then(snap=>{
+      snap.forEach(doc=>{
+        let d = doc.data();
+        data.innerHTML += `
+          <div class="card">
+            <b>${d.service}</b><br>
+            Customer: ${d.name} (${d.mobile})<br>
+            Worker: ${d.workerName} (${d.workerMobile})<br>
+            Village: ${d.village}<br>
+            Status: ${d.status || "pending"}
+          </div>
+        `;
       });
+    });
+  }
+
+  // 👷 WORKERS
+  function loadWorkers() {
+    data.innerHTML = "";
+    db.collection("workers").get().then(snap=>{
+      snap.forEach(doc=>{
+        let w = doc.data();
+        data.innerHTML += `
+          <div class="card">
+            <b>${w.name}</b><br>
+            Mobile: ${w.mobile}<br>
+            Service: ${w.service}<br>
+            Active: ${w.active}
+          </div>
+        `;
+      });
+    });
   }
 </script>
 
