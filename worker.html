@@ -2,124 +2,83 @@
 <html lang="hi">
 <head>
 <meta charset="UTF-8">
-<title>Village Help – Worker Panel</title>
+<title>Village Help – Worker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
-body { font-family: Arial; background:#f2f2f2; }
-.box { max-width:420px; margin:auto; background:#fff; padding:20px; margin-top:20px; border-radius:10px; }
-input, button { width:100%; padding:10px; margin-top:10px; }
-button { background:#28a745; color:#fff; border:none; }
-.card { background:#eef6ff; padding:10px; margin-top:10px; border-radius:6px; }
-.call { background:#007bff; margin-top:5px; }
-.done { background:#999; }
+body{font-family:Arial;background:#f2f2f2}
+.box{max-width:420px;margin:auto;background:#fff;padding:20px;margin-top:20px;border-radius:10px}
+input,button{width:100%;padding:10px;margin-top:10px}
+button{background:#28a745;color:#fff;border:none}
+.card{background:#eef6ff;padding:10px;margin-top:10px;border-radius:6px}
+.call{background:#007bff;margin-top:5px}
 </style>
 </head>
 
 <body>
 
-<!-- 🔐 LOGIN -->
 <div class="box" id="loginBox">
-  <h2>👷 Worker Login</h2>
-  <input id="mobile" placeholder="Mobile Number (e.g. 9263971296)">
-  <button onclick="login()">Login</button>
+<h2>Worker Login</h2>
+<input id="mobile" placeholder="Mobile Number">
+<button onclick="login()">Login</button>
 </div>
 
-<!-- 📋 DASHBOARD -->
 <div class="box" id="panel" style="display:none;">
-  <h2>My Bookings</h2>
-  <div id="list">Loading...</div>
+<h2>My Bookings</h2>
+<div id="list"></div>
 </div>
 
 <script>
-/* 🔥 SAME CONFIG AS ADMIN */
-const firebaseConfig = {
-  apiKey: "AIzaSyDOBjOo5YsBndo8HPQv66ClmthIHqf0gmw",
-  authDomain: "village-help-6dda3.firebaseapp.com",
-  projectId: "village-help-6dda3",
-  storageBucket: "village-help-6dda3.firebasestorage.app",
-  messagingSenderId: "242196617492",
-  appId: "1:242196617492:web:a1dde8b7a42088f75b0a01"
+const firebaseConfig={
+apiKey:"AIzaSyDOBjOo5YsBndo8HPQv66ClmthIHqf0gmw",
+authDomain:"village-help-6dda3.firebaseapp.com",
+projectId:"village-help-6dda3",
+storageBucket:"village-help-6dda3.firebasestorage.app",
+messagingSenderId:"242196617492",
+appId:"1:242196617492:web:a1dde8b7a42088f75b0a01"
 };
-
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const db=firebase.firestore();
+let workerMobile="";
 
-let workerMobile = "";
+async function login(){
+workerMobile=mobile.value.trim();
+if(workerMobile.length!==10){alert("Invalid number");return;}
 
-/* 🔐 LOGIN FUNCTION */
-async function login() {
-  workerMobile = document.getElementById("mobile").value.trim();
+const snap=await db.collection("workers")
+.where("mobile","==",workerMobile)
+.where("active","==",true).limit(1).get();
 
-  if (workerMobile.length !== 10) {
-    alert("सही mobile number डालें");
-    return;
-  }
+if(snap.empty){alert("आप registered worker नहीं हैं");return;}
 
-  const snap = await db.collection("workers")
-    .where("mobile", "==", workerMobile)
-    .where("active", "==", true)
-    .limit(1)
-    .get();
-
-  if (snap.empty) {
-    alert("आप registered worker नहीं हैं");
-    return;
-  }
-
-  document.getElementById("loginBox").style.display = "none";
-  document.getElementById("panel").style.display = "block";
-  loadBookings();
+loginBox.style.display="none";
+panel.style.display="block";
+loadBookings();
 }
 
-/* 📦 LOAD BOOKINGS */
-function loadBookings() {
-  db.collection("bookings")
-    .where("workerMobile", "==", workerMobile)
-    .onSnapshot(snap => {
-      const list = document.getElementById("list");
-      list.innerHTML = "";
-
-      if (snap.empty) {
-        list.innerHTML = "कोई booking नहीं है";
-        return;
-      }
-
-      snap.forEach(doc => {
-        const d = doc.data();
-        list.innerHTML += `
-          <div class="card">
-            <b>${d.service}</b><br>
-            ग्राहक: ${d.name} (${d.mobile})<br>
-            गाँव: ${d.village}<br>
-            Status: <b>${d.status || "pending"}</b><br>
-
-            <a href="tel:${d.mobile}">
-              <button class="call">📞 Customer Call</button>
-            </a>
-
-            ${
-              d.status !== "accepted"
-              ? `<button onclick="accept('${doc.id}')">✅ Accept</button>`
-              : `<button class="done" disabled>Accepted</button>`
-            }
-          </div>
-        `;
-      });
-    });
-}
-
-/* ✅ ACCEPT BOOKING */
-function accept(id) {
-  db.collection("bookings").doc(id).update({
-    status: "accepted"
-  });
+function loadBookings(){
+db.collection("bookings")
+.where("workerMobile","==",workerMobile)
+.onSnapshot(s=>{
+list.innerHTML="";
+if(s.empty){list.innerHTML="No bookings";return;}
+s.forEach(d=>{
+const b=d.data();
+list.innerHTML+=`
+<div class="card">
+<b>${b.service}</b><br>
+${b.name} (${b.mobile})<br>
+Status: ${b.status}<br>
+<a href="tel:${b.mobile}">
+<button class="call">📞 Call</button>
+</a>
+</div>`;
+});
+});
 }
 </script>
-
 </body>
 </html>
