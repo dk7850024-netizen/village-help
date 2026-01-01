@@ -2,122 +2,118 @@
 <html lang="hi">
 <head>
 <meta charset="UTF-8">
-<title>Village Help</title>
+<title>Village Help – Customer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
 body { font-family: Arial; background:#f2f2f2; }
-.container {
-  max-width:420px; margin:auto; background:#fff;
-  padding:20px; margin-top:20px; border-radius:10px;
-}
-input, select, button {
-  width:100%; padding:10px; margin-top:10px;
-}
-button {
-  background:#28a745; color:#fff; border:none; font-size:16px;
-}
-button:disabled {
-  background:#aaa;
-}
-.card {
-  background:#eef6ff; padding:12px; margin-top:12px;
-  border-radius:6px;
-}
-.status {
-  font-weight:bold;
-}
-.pending { color:#ff9800; }
-.accepted { color:#2196f3; }
-.completed { color:#4caf50; }
-.call { background:#007bff; margin-top:8px; }
-hr { margin:15px 0; }
+.box { max-width:420px; margin:auto; background:#fff; padding:20px; margin-top:20px; border-radius:10px; }
+input, select, button { width:100%; padding:10px; margin-top:10px; }
+button { border:none; font-size:15px; }
+.green { background:#28a745; color:#fff; }
+.blue { background:#007bff; color:#fff; }
+.red { background:#dc3545; color:#fff; }
+.card { background:#eef6ff; padding:10px; margin-top:10px; border-radius:6px; }
 </style>
 </head>
 
 <body>
-<div class="container">
+
+<!-- 🔐 AUTH -->
+<div class="box" id="authBox">
+  <h2>Customer Login / Signup</h2>
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+  <button class="green" onclick="signup()">Sign Up</button>
+  <button class="blue" onclick="login()">Login</button>
+</div>
+
+<!-- 📦 MAIN APP -->
+<div class="box" id="app" style="display:none;">
   <h2>Village Help</h2>
 
-  <!-- BOOKING FORM -->
-  <div id="bookingForm">
-    <select id="service">
-      <option value="">Service चुनें</option>
-      <option>Electrician</option>
-      <option>Plumber</option>
-    </select>
+  <select id="service">
+    <option value="">Service चुनें</option>
+    <option>Electrician</option>
+    <option>Plumber</option>
+  </select>
 
-    <input id="name" placeholder="आपका नाम">
-    <input id="mobile" placeholder="Mobile नंबर (10 digit)">
-    <input id="village" placeholder="गाँव का नाम">
+  <input id="name" placeholder="आपका नाम">
+  <input id="mobile" placeholder="Mobile Number">
+  <input id="village" placeholder="गाँव का नाम">
 
-    <button onclick="book()">Service Book करें</button>
-  </div>
-
-  <!-- ACTIVE BOOKING -->
-  <div id="activeBooking"></div>
+  <button class="green" onclick="book()">Service Book करें</button>
+  <button class="red" onclick="logout()">Logout</button>
 
   <hr>
-
-  <!-- BOOKING HISTORY -->
-  <h3>📜 आपकी Booking History</h3>
-  <div id="history">Mobile number डालें</div>
+  <h3>📜 Booking History</h3>
+  <div id="history">Loading...</div>
 </div>
 
 <script>
-/* 🔥 SAME FIREBASE PROJECT AS ADMIN + WORKER */
+/* 🔥 Firebase Config */
 const firebaseConfig = {
-  apiKey: "AIzaSyDOBjOo5YsBndo8HPQv66ClmthIHqf0gmw",
-  authDomain: "village-help-6dda3.firebaseapp.com",
-  projectId: "village-help-6dda3",
-  storageBucket: "village-help-6dda3.firebasestorage.app",
-  messagingSenderId: "242196617492",
-  appId: "1:242196617492:web:a1dde8b7a42088f75b0a01"
+  apiKey: "AIzaSyByMmFPEZEH6ECLKNHyL6RdvNrY-zWHBpU",
+  authDomain: "village-help.firebaseapp.com",
+  projectId: "village-help",
+  storageBucket: "village-help.firebasestorage.app",
+  messagingSenderId: "639842342038",
+  appId: "1:639842342038:web:7effe000ed9bae0fc31eb7"
 };
+
 firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
 const db = firebase.firestore();
 
-/* 🔒 Prevent duplicate active booking */
-async function hasActiveBooking(mobile) {
-  const snap = await db.collection("bookings")
-    .where("mobile","==",mobile)
-    .where("status","in",["pending","accepted"])
-    .get();
-  return !snap.empty;
+/* 🔐 SIGNUP */
+function signup() {
+  auth.createUserWithEmailAndPassword(email.value, password.value)
+    .then(()=>alert("Signup successful"))
+    .catch(err=>alert(err.message));
 }
+
+/* 🔐 LOGIN */
+function login() {
+  auth.signInWithEmailAndPassword(email.value, password.value)
+    .catch(err=>alert(err.message));
+}
+
+/* 🔓 LOGOUT */
+function logout() {
+  auth.signOut();
+}
+
+/* 🔄 SESSION */
+auth.onAuthStateChanged(user=>{
+  if(user){
+    authBox.style.display="none";
+    app.style.display="block";
+    loadHistory();
+  } else {
+    authBox.style.display="block";
+    app.style.display="none";
+  }
+});
 
 /* 📦 BOOK SERVICE */
 async function book() {
-  const service = serviceEl().value;
-  const name = nameEl().value.trim();
-  const mobile = mobileEl().value.trim();
-  const village = villageEl().value.trim();
-
-  if (!service || !name || !mobile || !village) {
+  if(!service.value || !name.value || !mobile.value || !village.value){
     alert("सभी जानकारी भरें");
-    return;
-  }
-  if (mobile.length !== 10) {
-    alert("10 digit mobile number डालें");
-    return;
-  }
-
-  if (await hasActiveBooking(mobile)) {
-    alert("आपकी एक booking पहले से active है");
     return;
   }
 
   const workerSnap = await db.collection("workers")
-    .where("service","==",service)
+    .where("service","==",service.value)
     .where("active","==",true)
     .limit(1)
     .get();
 
-  if (workerSnap.empty) {
+  if(workerSnap.empty){
     alert("अभी worker उपलब्ध नहीं है");
     return;
   }
@@ -125,77 +121,47 @@ async function book() {
   const worker = workerSnap.docs[0].data();
 
   await db.collection("bookings").add({
-    name, mobile, village, service,
+    uid: auth.currentUser.uid,
+    name: name.value,
+    mobile: mobile.value,
+    village: village.value,
+    service: service.value,
     workerName: worker.name,
     workerMobile: worker.mobile,
     status: "pending",
     time: new Date()
   });
 
-  watchBookings(mobile);
+  alert("Booking successful");
+  loadHistory();
 }
 
-/* 🔁 LIVE BOOKINGS (STATUS + HISTORY) */
-function watchBookings(mobile) {
+/* 📜 HISTORY */
+function loadHistory(){
   db.collection("bookings")
-    .where("mobile","==",mobile)
+    .where("uid","==",auth.currentUser.uid)
     .orderBy("time","desc")
-    .onSnapshot(snap => {
-      let activeHTML = "";
-      let historyHTML = "";
-
-      snap.forEach(doc => {
-        const d = doc.data();
-        const statusClass =
-          d.status === "accepted" ? "accepted" :
-          d.status === "completed" ? "completed" : "pending";
-
-        const card = `
+    .onSnapshot(snap=>{
+      history.innerHTML="";
+      if(snap.empty){
+        history.innerHTML="No bookings yet";
+        return;
+      }
+      snap.forEach(doc=>{
+        const b=doc.data();
+        history.innerHTML+=`
           <div class="card">
-            <b>${d.service}</b><br>
-            Worker: ${d.workerName}<br>
-            Village: ${d.village}<br>
-            Status:
-            <span class="status ${statusClass}">
-              ${d.status || "pending"}
-            </span><br>
-            <a href="tel:${d.workerMobile}">
-              <button class="call">📞 Worker Call</button>
+            <b>${b.service}</b><br>
+            Worker: ${b.workerName}<br>
+            Status: <b>${b.status}</b><br>
+            <a href="tel:${b.workerMobile}">
+              <button class="blue">📞 Call Worker</button>
             </a>
           </div>
         `;
-
-        if (d.status === "pending" || d.status === "accepted") {
-          activeHTML = card;
-          document.getElementById("bookingForm").style.display = "none";
-        } else {
-          historyHTML += card;
-        }
       });
-
-      document.getElementById("activeBooking").innerHTML =
-        activeHTML || "कोई active booking नहीं है";
-
-      document.getElementById("history").innerHTML =
-        historyHTML || "कोई पुरानी booking नहीं";
-
-      if (!activeHTML) {
-        document.getElementById("bookingForm").style.display = "block";
-      }
     });
 }
-
-/* Helpers */
-const serviceEl = () => document.getElementById("service");
-const nameEl = () => document.getElementById("name");
-const mobileEl = () => document.getElementById("mobile");
-const villageEl = () => document.getElementById("village");
-
-/* Auto load history when mobile entered */
-mobileEl().addEventListener("blur", () => {
-  const m = mobileEl().value.trim();
-  if (m.length === 10) watchBookings(m);
-});
 </script>
 
 </body>
