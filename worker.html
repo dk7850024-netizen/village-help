@@ -13,31 +13,30 @@
 body { font-family: Arial; background:#f2f2f2; }
 .box { max-width:420px; margin:auto; background:#fff; padding:20px; margin-top:20px; border-radius:10px; }
 input, button { width:100%; padding:10px; margin-top:10px; }
-button { background:#28a745; color:#fff; border:none; font-size:16px; }
+button { background:#28a745; color:#fff; border:none; }
 .card { background:#eef6ff; padding:10px; margin-top:10px; border-radius:6px; }
 .call { background:#007bff; margin-top:5px; }
-.accept { background:#28a745; margin-top:5px; }
-.done { background:#aaa; margin-top:5px; }
+.done { background:#999; }
 </style>
 </head>
 
 <body>
 
-<!-- LOGIN -->
+<!-- 🔐 LOGIN -->
 <div class="box" id="loginBox">
   <h2>👷 Worker Login</h2>
-  <input id="mobile" placeholder="Mobile Number (10 digit)">
+  <input id="mobile" placeholder="Mobile Number (e.g. 9263971296)">
   <button onclick="login()">Login</button>
 </div>
 
-<!-- DASHBOARD -->
+<!-- 📋 DASHBOARD -->
 <div class="box" id="panel" style="display:none;">
   <h2>My Bookings</h2>
-  <div id="bookings">Loading...</div>
+  <div id="list">Loading...</div>
 </div>
 
 <script>
-/* 🔹 Firebase CONFIG (YOUR NEW PROJECT) */
+/* 🔥 SAME CONFIG AS ADMIN */
 const firebaseConfig = {
   apiKey: "AIzaSyDOBjOo5YsBndo8HPQv66ClmthIHqf0gmw",
   authDomain: "village-help-6dda3.firebaseapp.com",
@@ -50,19 +49,19 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-let WORKER_MOBILE = "";
+let workerMobile = "";
 
-/* 🔐 LOGIN */
+/* 🔐 LOGIN FUNCTION */
 async function login() {
-  const mobile = document.getElementById("mobile").value.trim();
+  workerMobile = document.getElementById("mobile").value.trim();
 
-  if (mobile.length !== 10) {
-    alert("10 digit mobile number डालें");
+  if (workerMobile.length !== 10) {
+    alert("सही mobile number डालें");
     return;
   }
 
   const snap = await db.collection("workers")
-    .where("mobile", "==", mobile)
+    .where("mobile", "==", workerMobile)
     .where("active", "==", true)
     .limit(1)
     .get();
@@ -72,44 +71,40 @@ async function login() {
     return;
   }
 
-  WORKER_MOBILE = mobile;
   document.getElementById("loginBox").style.display = "none";
   document.getElementById("panel").style.display = "block";
   loadBookings();
 }
 
-/* 📋 LOAD BOOKINGS */
+/* 📦 LOAD BOOKINGS */
 function loadBookings() {
   db.collection("bookings")
-    .where("workerMobile", "==", WORKER_MOBILE)
-    .orderBy("time", "desc")
-    .onSnapshot(snapshot => {
-      const box = document.getElementById("bookings");
-      box.innerHTML = "";
+    .where("workerMobile", "==", workerMobile)
+    .onSnapshot(snap => {
+      const list = document.getElementById("list");
+      list.innerHTML = "";
 
-      if (snapshot.empty) {
-        box.innerHTML = "कोई booking नहीं है";
+      if (snap.empty) {
+        list.innerHTML = "कोई booking नहीं है";
         return;
       }
 
-      snapshot.forEach(doc => {
+      snap.forEach(doc => {
         const d = doc.data();
-        const status = d.status || "pending";
-
-        box.innerHTML += `
+        list.innerHTML += `
           <div class="card">
             <b>${d.service}</b><br>
             ग्राहक: ${d.name} (${d.mobile})<br>
             गाँव: ${d.village}<br>
-            Status: <b>${status}</b><br>
+            Status: <b>${d.status || "pending"}</b><br>
 
             <a href="tel:${d.mobile}">
               <button class="call">📞 Customer Call</button>
             </a>
 
             ${
-              status === "pending"
-              ? `<button class="accept" onclick="acceptBooking('${doc.id}')">✅ Accept</button>`
+              d.status !== "accepted"
+              ? `<button onclick="accept('${doc.id}')">✅ Accept</button>`
               : `<button class="done" disabled>Accepted</button>`
             }
           </div>
@@ -119,7 +114,7 @@ function loadBookings() {
 }
 
 /* ✅ ACCEPT BOOKING */
-function acceptBooking(id) {
+function accept(id) {
   db.collection("bookings").doc(id).update({
     status: "accepted"
   });
