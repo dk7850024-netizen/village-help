@@ -1,126 +1,96 @@
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-  <meta charset="UTF-8">
-  <title>Village Help – Admin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>Village Help – Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-  <style>
-    body { font-family: Arial; background:#f2f2f2; }
-    .box { max-width:500px; margin:auto; background:#fff; padding:20px; margin-top:20px; border-radius:10px; }
-    input, select, button { width:100%; padding:10px; margin-top:10px; }
-    button { background:#333; color:#fff; border:none; }
-    .card { background:#eef6ff; padding:10px; margin-top:10px; border-radius:6px; }
-  </style>
+<style>
+body{font-family:Arial;background:#f2f2f2}
+.box{max-width:500px;margin:auto;background:#fff;padding:20px;margin-top:20px;border-radius:10px}
+input,select,button{width:100%;padding:10px;margin-top:10px}
+button{background:#333;color:#fff;border:none}
+.card{background:#eef6ff;padding:10px;margin-top:10px;border-radius:6px}
+</style>
 </head>
 
 <body>
 
-<!-- 🔐 LOGIN -->
 <div class="box" id="loginBox">
-  <h2>🔐 Admin Login</h2>
-  <input id="password" type="password" placeholder="Admin Password">
-  <button onclick="login()">Login</button>
+<h2>Admin Login</h2>
+<input id="password" type="password" placeholder="Admin Password">
+<button onclick="login()">Login</button>
 </div>
 
-<!-- 📊 DASHBOARD -->
 <div class="box" id="dashboard" style="display:none;">
-  <h2>📊 Admin Dashboard</h2>
+<h3>Add Worker</h3>
+<input id="wname" placeholder="Name">
+<input id="wmobile" placeholder="Mobile (10 digit)">
+<select id="wservice">
+<option>Electrician</option>
+<option>Plumber</option>
+</select>
+<button onclick="addWorker()">Add Worker</button>
 
-  <h3>➕ Add Worker</h3>
-  <input id="wname" placeholder="Worker Name">
-  <input id="wmobile" placeholder="Mobile Number (10 digit)">
-  <select id="wservice">
-    <option>Electrician</option>
-    <option>Plumber</option>
-  </select>
-  <button onclick="addWorker()">Add Worker</button>
-
-  <h3>👷 All Workers</h3>
-  <div id="workers"></div>
+<h3>All Workers</h3>
+<div id="workers"></div>
 </div>
 
 <script>
-/* 🔥 SAME FIREBASE PROJECT AS WORKER PANEL */
-const firebaseConfig = {
-  apiKey: "AIzaSyDOBjOo5YsBndo8HPQv66ClmthIHqf0gmw",
-  authDomain: "village-help-6dda3.firebaseapp.com",
-  projectId: "village-help-6dda3",
-  storageBucket: "village-help-6dda3.firebasestorage.app",
-  messagingSenderId: "242196617492",
-  appId: "1:242196617492:web:a1dde8b7a42088f75b0a01"
+const firebaseConfig={
+apiKey:"AIzaSyDOBjOo5YsBndo8HPQv66ClmthIHqf0gmw",
+authDomain:"village-help-6dda3.firebaseapp.com",
+projectId:"village-help-6dda3",
+storageBucket:"village-help-6dda3.firebasestorage.app",
+messagingSenderId:"242196617492",
+appId:"1:242196617492:web:a1dde8b7a42088f75b0a01"
 };
-
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const db=firebase.firestore();
+const ADMIN_PASSWORD="Villaghelp123";
 
-const ADMIN_PASSWORD = "Villaghelp123";
-
-/* 🔐 LOGIN */
-function login() {
-  if (password.value !== ADMIN_PASSWORD) {
-    alert("Wrong password");
-    return;
-  }
-  loginBox.style.display = "none";
-  dashboard.style.display = "block";
-  loadWorkers();
+function login(){
+if(password.value!==ADMIN_PASSWORD){alert("Wrong password");return;}
+loginBox.style.display="none";
+dashboard.style.display="block";
+loadWorkers();
 }
 
-/* ➕ ADD WORKER */
-function addWorker() {
-  const name = wname.value.trim();
-  const mobile = wmobile.value.trim();
-
-  if (mobile.length !== 10) {
-    alert("10 digit mobile number daalein");
-    return;
-  }
-
-  db.collection("workers").add({
-    name: name,
-    mobile: mobile,      // 🔥 string, 10 digit
-    service: wservice.value,
-    active: true
-  }).then(() => {
-    alert("Worker Added");
-    wname.value = "";
-    wmobile.value = "";
-  });
+function addWorker(){
+if(wmobile.value.length!==10){alert("10 digit number");return;}
+db.collection("workers").add({
+name:wname.value,
+mobile:wmobile.value,
+service:wservice.value,
+active:true
+});
+wname.value="";wmobile.value="";
 }
 
-/* 👷 LOAD WORKERS */
-function loadWorkers() {
-  db.collection("workers").onSnapshot(snap => {
-    workers.innerHTML = "";
-    snap.forEach(doc => {
-      const w = doc.data();
-      workers.innerHTML += `
-        <div class="card">
-          <b>${w.name}</b><br>
-          Mobile: ${w.mobile}<br>
-          Service: ${w.service}<br>
-          Status: <b>${w.active ? "Active" : "Inactive"}</b><br>
-          <button onclick="toggleWorker('${doc.id}', ${w.active})">
-            ${w.active ? "Deactivate" : "Activate"}
-          </button>
-        </div>
-      `;
-    });
-  });
+function loadWorkers(){
+db.collection("workers").onSnapshot(s=>{
+workers.innerHTML="";
+s.forEach(d=>{
+const w=d.data();
+workers.innerHTML+=`
+<div class="card">
+<b>${w.name}</b><br>
+${w.mobile} | ${w.service}<br>
+Status: ${w.active?"Active":"Inactive"}<br>
+<button onclick="toggle('${d.id}',${w.active})">
+${w.active?"Deactivate":"Activate"}
+</button>
+</div>`;
+});
+});
 }
 
-/* 🔁 ACTIVATE / DEACTIVATE */
-function toggleWorker(id, status) {
-  db.collection("workers").doc(id).update({
-    active: !status
-  });
+function toggle(id,st){
+db.collection("workers").doc(id).update({active:!st});
 }
 </script>
-
 </body>
 </html>
