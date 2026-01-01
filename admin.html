@@ -2,95 +2,197 @@
 <html lang="hi">
 <head>
 <meta charset="UTF-8">
-<title>Village Help – Admin</title>
+<title>Village Help – Customer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
-body{font-family:Arial;background:#f2f2f2}
-.box{max-width:500px;margin:auto;background:#fff;padding:20px;margin-top:20px;border-radius:10px}
-input,select,button{width:100%;padding:10px;margin-top:10px}
-button{background:#333;color:#fff;border:none}
-.card{background:#eef6ff;padding:10px;margin-top:10px;border-radius:6px}
+body { font-family: Arial; background:#f2f2f2; }
+.box { max-width:420px; margin:auto; background:#fff; padding:20px; margin-top:20px; border-radius:10px; }
+input, select, button { width:100%; padding:10px; margin-top:10px; }
+button { border:none; font-size:15px; }
+.green { background:#28a745; color:#fff; }
+.blue { background:#007bff; color:#fff; }
+.red { background:#dc3545; color:#fff; }
+.card { background:#eef6ff; padding:10px; margin-top:10px; border-radius:6px; }
 </style>
 </head>
 
 <body>
 
-<div class="box" id="loginBox">
-<h2>Admin Login</h2>
-<input id="password" type="password" placeholder="Admin Password">
-<button onclick="login()">Login</button>
+<!-- 🔐 AUTH -->
+<div class="box" id="authBox">
+  <h2>Customer Login / Signup</h2>
+  <input id="cname" placeholder="आपका नाम">
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password (min 6 char)">
+  <button class="green" onclick="signup()">Sign Up</button>
+  <button class="blue" onclick="login()">Login</button>
 </div>
 
-<div class="box" id="dashboard" style="display:none;">
-<h3>Add Worker</h3>
-<input id="wname" placeholder="Name">
-<input id="wmobile" placeholder="Mobile (10 digit)">
-<select id="wservice">
-<option>Electrician</option>
-<option>Plumber</option>
-</select>
-<button onclick="addWorker()">Add Worker</button>
+<!-- 📦 MAIN APP -->
+<div class="box" id="app" style="display:none;">
+  <h2>Village Help</h2>
 
-<h3>All Workers</h3>
-<div id="workers"></div>
+  <select id="service">
+    <option value="">Service चुनें</option>
+    <option>Electrician</option>
+    <option>Plumber</option>
+  </select>
+
+  <input id="mobile" placeholder="Mobile Number (10 digit)">
+  <input id="village" placeholder="गाँव का नाम">
+
+  <button class="green" onclick="book()">Service Book करें</button>
+  <button class="red" onclick="logout()">Logout</button>
+
+  <hr>
+  <h3>📜 Booking History</h3>
+  <div id="history">Loading...</div>
 </div>
 
 <script>
-const firebaseConfig={
-apiKey:"AIzaSyDOBjOo5YsBndo8HPQv66ClmthIHqf0gmw",
-authDomain:"village-help-6dda3.firebaseapp.com",
-projectId:"village-help-6dda3",
-storageBucket:"village-help-6dda3.firebasestorage.app",
-messagingSenderId:"242196617492",
-appId:"1:242196617492:web:a1dde8b7a42088f75b0a01"
+/* 🔥 FIREBASE CONFIG (SAME PROJECT EVERYWHERE) */
+const firebaseConfig = {
+  apiKey: "AIzaSyDOBjOo5YsBndo8HPQv66ClmthIHqf0gmw",
+  authDomain: "village-help-6dda3.firebaseapp.com",
+  projectId: "village-help-6dda3",
+  storageBucket: "village-help-6dda3.firebasestorage.app",
+  messagingSenderId: "242196617492",
+  appId: "1:242196617492:web:a1dde8b7a42088f75b0a01"
 };
+
 firebase.initializeApp(firebaseConfig);
-const db=firebase.firestore();
-const ADMIN_PASSWORD="Villaghelp123";
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-function login(){
-if(password.value!==ADMIN_PASSWORD){alert("Wrong password");return;}
-loginBox.style.display="none";
-dashboard.style.display="block";
-loadWorkers();
+/* 🔐 SIGN UP (ONLY NEW USER) */
+function signup() {
+  const name = cname.value.trim();
+  const emailVal = email.value.trim();
+  const passVal = password.value;
+
+  if (!name || !emailVal || !passVal) {
+    alert("नाम, Email और Password जरूरी है");
+    return;
+  }
+
+  auth.createUserWithEmailAndPassword(emailVal, passVal)
+    .then(cred => {
+      return db.collection("customers").doc(cred.user.uid).set({
+        name: name,
+        email: emailVal,
+        createdAt: new Date()
+      });
+    })
+    .then(() => {
+      alert("Signup successful 🎉 अब Login हो चुके हैं");
+    })
+    .catch(err => {
+      if (err.code === "auth/email-already-in-use") {
+        alert("Email पहले से registered है, Login करें");
+      } else {
+        alert(err.message);
+      }
+    });
 }
 
-function addWorker(){
-if(wmobile.value.length!==10){alert("10 digit number");return;}
-db.collection("workers").add({
-name:wname.value,
-mobile:wmobile.value,
-service:wservice.value,
-active:true
-});
-wname.value="";wmobile.value="";
+/* 🔐 LOGIN */
+function login() {
+  auth.signInWithEmailAndPassword(email.value, password.value)
+    .catch(err => alert(err.message));
 }
 
-function loadWorkers(){
-db.collection("workers").onSnapshot(s=>{
-workers.innerHTML="";
-s.forEach(d=>{
-const w=d.data();
-workers.innerHTML+=`
-<div class="card">
-<b>${w.name}</b><br>
-${w.mobile} | ${w.service}<br>
-Status: ${w.active?"Active":"Inactive"}<br>
-<button onclick="toggle('${d.id}',${w.active})">
-${w.active?"Deactivate":"Activate"}
-</button>
-</div>`;
-});
-});
+/* 🔓 LOGOUT */
+function logout() {
+  auth.signOut();
 }
 
-function toggle(id,st){
-db.collection("workers").doc(id).update({active:!st});
+/* 🔄 AUTH STATE */
+auth.onAuthStateChanged(user => {
+  if (user) {
+    authBox.style.display = "none";
+    app.style.display = "block";
+    loadHistory();
+  } else {
+    authBox.style.display = "block";
+    app.style.display = "none";
+  }
+});
+
+/* 📦 BOOK SERVICE */
+async function book() {
+  if (!service.value || !mobile.value || !village.value) {
+    alert("सभी जानकारी भरें");
+    return;
+  }
+
+  const userDoc = await db.collection("customers")
+    .doc(auth.currentUser.uid)
+    .get();
+
+  const customerName = userDoc.data().name;
+
+  const workerSnap = await db.collection("workers")
+    .where("service", "==", service.value)
+    .where("active", "==", true)
+    .limit(1)
+    .get();
+
+  if (workerSnap.empty) {
+    alert("अभी worker उपलब्ध नहीं है");
+    return;
+  }
+
+  const worker = workerSnap.docs[0].data();
+
+  await db.collection("bookings").add({
+    uid: auth.currentUser.uid,
+    name: customerName,
+    mobile: mobile.value,
+    village: village.value,
+    service: service.value,
+    workerName: worker.name,
+    workerMobile: worker.mobile,
+    status: "pending",
+    time: new Date()
+  });
+
+  alert("Booking successful ✅");
+  loadHistory();
+}
+
+/* 📜 BOOKING HISTORY */
+function loadHistory() {
+  db.collection("bookings")
+    .where("uid", "==", auth.currentUser.uid)
+    .orderBy("time", "desc")
+    .onSnapshot(snap => {
+      history.innerHTML = "";
+      if (snap.empty) {
+        history.innerHTML = "No bookings yet";
+        return;
+      }
+      snap.forEach(doc => {
+        const b = doc.data();
+        history.innerHTML += `
+          <div class="card">
+            <b>${b.service}</b><br>
+            Worker: ${b.workerName}<br>
+            Status: <b>${b.status}</b><br>
+            <a href="tel:${b.workerMobile}">
+              <button class="blue">📞 Call Worker</button>
+            </a>
+          </div>
+        `;
+      });
+    });
 }
 </script>
+
 </body>
 </html>
