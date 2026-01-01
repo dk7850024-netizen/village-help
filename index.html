@@ -38,69 +38,83 @@
   <div class="confirm" id="confirm">
     <h3>✅ Booking Confirm</h3>
     <p id="info"></p>
-    <a id="callWorker"><button class="call">📞 Worker को Call करें</button></a>
-    <a href="tel:9999999999"><button class="call">📞 Admin को Call करें</button></a>
+    <a id="callWorker">
+      <button class="call">📞 Worker को Call करें</button>
+    </a>
+    <a href="tel:9999999999">
+      <button class="call">📞 Admin को Call करें</button>
+    </a>
   </div>
 </div>
 
 <script>
-  // ✅ Firebase Config (FINAL – CONNECTED)
-  const firebaseConfig = {
-    apiKey: "AIzaSyByMmFPEZEH6ECLKNHyL6RdvNrY-zWHBpU",
-    authDomain: "village-help.firebaseapp.com",
-    projectId: "village-help",
-    storageBucket: "village-help.firebasestorage.app",
-    messagingSenderId: "639842342038",
-    appId: "1:639842342038:web:7effe000ed9bae0fc31eb7",
-    measurementId: "G-EQT8S6Y8PD"
-  };
+/* 🔥 SAME FIREBASE PROJECT AS ADMIN + WORKER */
+const firebaseConfig = {
+  apiKey: "AIzaSyDOBjOo5YsBndo8HPQv66ClmthIHqf0gmw",
+  authDomain: "village-help-6dda3.firebaseapp.com",
+  projectId: "village-help-6dda3",
+  storageBucket: "village-help-6dda3.firebasestorage.app",
+  messagingSenderId: "242196617492",
+  appId: "1:242196617492:web:a1dde8b7a42088f75b0a01"
+};
 
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-  async function book() {
-    let service = document.getElementById("service").value;
-    let name = document.getElementById("name").value;
-    let mobile = document.getElementById("mobile").value;
-    let village = document.getElementById("village").value;
+async function book() {
+  const service = document.getElementById("service").value;
+  const name = document.getElementById("name").value.trim();
+  const mobile = document.getElementById("mobile").value.trim();
+  const village = document.getElementById("village").value.trim();
 
-    if (!service || !name || !mobile || !village) {
-      alert("सभी जानकारी भरें");
-      return;
-    }
-
-    let workerSnap = await db.collection("workers")
-      .where("service", "==", service)
-      .where("active", "==", true)
-      .limit(1)
-      .get();
-
-    if (workerSnap.empty) {
-      alert("अभी worker उपलब्ध नहीं है");
-      return;
-    }
-
-    let worker = workerSnap.docs[0].data();
-
-    await db.collection("bookings").add({
-      name,
-      mobile,
-      village,
-      service,
-      workerName: worker.name,
-      workerMobile: worker.mobile,
-      time: new Date()
-    });
-
-    document.getElementById("info").innerHTML = `
-      <b>Service:</b> ${service}<br>
-      <b>Worker:</b> ${worker.name}<br>
-      <b>Village:</b> ${village}
-    `;
-
-    document.getElementById("callWorker").href = "tel:" + worker.mobile;
-    document.getElementById("confirm").style.display = "block";
+  if (!service || !name || !mobile || !village) {
+    alert("सभी जानकारी भरें");
+    return;
   }
+
+  if (mobile.length !== 10) {
+    alert("10 digit mobile number डालें");
+    return;
+  }
+
+  /* 🔎 FIND ACTIVE WORKER OF SAME SERVICE */
+  const workerSnap = await db.collection("workers")
+    .where("service", "==", service)
+    .where("active", "==", true)
+    .limit(1)
+    .get();
+
+  if (workerSnap.empty) {
+    alert("अभी worker उपलब्ध नहीं है");
+    return;
+  }
+
+  const workerDoc = workerSnap.docs[0];
+  const worker = workerDoc.data();
+
+  /* 📦 SAVE BOOKING */
+  await db.collection("bookings").add({
+    name: name,
+    mobile: mobile,
+    village: village,
+    service: service,
+    workerName: worker.name,
+    workerMobile: worker.mobile, // 🔥 10 digit, SAME AS WORKER PANEL
+    status: "pending",
+    time: new Date()
+  });
+
+  /* ✅ CONFIRMATION */
+  document.getElementById("info").innerHTML = `
+    <b>Service:</b> ${service}<br>
+    <b>Worker:</b> ${worker.name}<br>
+    <b>Village:</b> ${village}
+  `;
+
+  document.getElementById("callWorker").href = "tel:" + worker.mobile;
+  document.getElementById("confirm").style.display = "block";
+}
 </script>
+
 </body>
 </html>
